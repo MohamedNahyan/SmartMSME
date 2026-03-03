@@ -106,7 +106,14 @@ class SaleItem(models.Model):
     )
 
     quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+
+    unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True
+    )
+
     line_total = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -120,8 +127,16 @@ class SaleItem(models.Model):
         ordering = ['created_at']
 
     def save(self, *args, **kwargs):
+        # If unit_price is empty → use product default price
+        if self.unit_price is None:
+            self.unit_price = self.product.default_price
+
+        # Calculate line total
         self.line_total = self.quantity * self.unit_price
+
         super().save(*args, **kwargs)
+
+        # Update sale total
         self.sale.update_total_amount()
 
     def delete(self, *args, **kwargs):
