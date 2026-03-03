@@ -4,3 +4,6 @@ __pycache__/
 db.sqlite3
 .env
 Backend/.env
+Backend/*.pyc
+Backend/__pycache__/
+Backend/venv/
