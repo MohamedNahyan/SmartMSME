@@ -265,3 +265,25 @@ class Reminder(models.Model):
 
     def __str__(self):
         return self.title
+
+
+# CSV File Store
+
+FILE_TYPES = (
+    ("sales", "Sales"),
+    ("income", "Income"),
+    ("expense", "Expense"),
+)
+
+class UploadedFile(models.Model):
+    file = models.FileField(upload_to='uploads/')
+    file_type = models.CharField(max_length=20, choices=FILE_TYPES)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "uploaded_files"
+
+    def __str__(self):
+        if self.file:
+            return str(self.file.name)
+        return "Uploaded File"
