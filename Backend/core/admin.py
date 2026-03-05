@@ -26,28 +26,45 @@ class SaleItemAdmin(admin.ModelAdmin):
 
 @admin.register(UploadedFile)
 class UploadedFileAdmin(admin.ModelAdmin):
-    list_display = ("file", "file_type", "uploaded_at")
+
+    list_display = ("file", "file_type", "branch", "uploaded_at")
 
     def save_model(self, request, obj, form, change):
+
+        if not obj.user:
+            obj.user = request.user
+
         super().save_model(request, obj, form, change)
 
         try:
+
+            if not obj.branch:
+                raise Exception("Please select a branch.")
+
             if obj.file_type == "sales":
-                process_sales_file(obj.file.path, branch_id=1)
+                process_sales_file(obj.file.path, branch_id=obj.branch.id)
 
             elif obj.file_type == "income":
-                process_income_file(obj.file.path, branch_id=1)
+                process_income_file(obj.file.path, branch_id=obj.branch.id)
 
             elif obj.file_type == "expense":
-                process_expense_file(obj.file.path, branch_id=1)
+                process_expense_file(obj.file.path, branch_id=obj.branch.id)
 
-            # remove file after successful processing
+            # delete file after successful processing
             obj.file.delete(save=False)
             obj.delete()
 
             messages.success(request, "File processed successfully.")
 
         except Exception as e:
+
+            # delete uploaded file if processing fails
+            if obj.file:
+                obj.file.delete(save=False)
+
+            # delete database record
+            obj.delete()
+
             messages.error(request, f"Error processing file: {e}")
 
 

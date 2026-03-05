@@ -1,6 +1,8 @@
 from django.db import models
 from django.db.models import Sum
+from django.db.models.functions import Lower
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 import uuid
 
 
@@ -20,6 +22,10 @@ class Branch(models.Model):
         return self.name
 
 
+from django.db import models
+from django.db.models.functions import Lower
+from django.core.exceptions import ValidationError
+
 class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -27,6 +33,7 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
     branch = models.ForeignKey(
         Branch,
         on_delete=models.CASCADE,
@@ -36,7 +43,21 @@ class Product(models.Model):
     class Meta:
         db_table = 'products'
         ordering = ['name']
-        unique_together = ('name', 'branch')
+        constraints = [
+            models.UniqueConstraint(
+                Lower('name'), 'branch',
+                name='unique_product_per_branch_ci'
+            )
+        ]
+
+    def clean(self):
+        if Product.objects.filter(
+            branch=self.branch,
+            name__iexact=self.name
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError({
+                "name": "A product with this name already exists in this branch."
+            })
 
     def __str__(self):
         return self.name
@@ -160,6 +181,21 @@ class IncomeCategory(models.Model):
     class Meta:
         db_table = 'income_categories'
         ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(
+                Lower('name'), 'user',
+                name='unique_income_category_per_user_ci'
+            )
+        ]
+
+    def clean(self):
+        if IncomeCategory.objects.filter(
+            user=self.user,
+            name__iexact=self.name
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError({
+                "name": "You already have an income category with this name."
+            })
 
     def __str__(self):
         return self.name
@@ -205,10 +241,24 @@ class ExpenseCategory(models.Model):
     class Meta:
         db_table = 'expense_categories'
         ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(
+                Lower('name'), 'user',
+                name='unique_expense_category_per_user_ci'
+            )
+        ]
+
+    def clean(self):
+        if ExpenseCategory.objects.filter(
+            user=self.user,
+            name__iexact=self.name
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError({
+                "name": "You already have an expense category with this name."
+            })
 
     def __str__(self):
         return self.name
-
 
 class Expense(models.Model):
     branch = models.ForeignKey(
@@ -276,14 +326,27 @@ FILE_TYPES = (
 )
 
 class UploadedFile(models.Model):
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="uploaded_files",
+        null=True,
+        blank=True
+    )
+
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="uploaded_files"
+    )
+
     file = models.FileField(upload_to='uploads/')
     file_type = models.CharField(max_length=20, choices=FILE_TYPES)
+
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "uploaded_files"
-
-    def __str__(self):
-        if self.file:
-            return str(self.file.name)
-        return "Uploaded File"
