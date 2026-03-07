@@ -43,6 +43,9 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('api/', include(router.urls)),
+    
+    # Analytics Dashboard
+    path('api/dashboard/', include('core.analytics.urls')),
 ]
 
 if settings.DEBUG:
