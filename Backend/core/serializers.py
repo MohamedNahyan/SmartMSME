@@ -9,7 +9,8 @@ from .models import (
     Income,
     ExpenseCategory,
     Expense,
-    Reminder
+    Reminder,
+    UserProfile
 )
 
 
@@ -118,3 +119,26 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get("last_name", "")
         )
         return user
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name', allow_blank=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['username', 'email', 'first_name', 'last_name', 'business_name', 'timezone', 'updated_at']
+        read_only_fields = ['username', 'updated_at']
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        for attr, value in user_data.items():
+            setattr(instance.user, attr, value)
+        instance.user.save()
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance

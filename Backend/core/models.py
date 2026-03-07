@@ -22,10 +22,6 @@ class Branch(models.Model):
         return self.name
 
 
-from django.db import models
-from django.db.models.functions import Lower
-from django.core.exceptions import ValidationError
-
 class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -350,3 +346,17 @@ class UploadedFile(models.Model):
 
     class Meta:
         db_table = "uploaded_files"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    business_name = models.CharField(max_length=255, blank=True)
+    timezone = models.CharField(max_length=50, default="UTC")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_profiles'
+
+    def __str__(self):
+        return f"{self.user.username} Profile"

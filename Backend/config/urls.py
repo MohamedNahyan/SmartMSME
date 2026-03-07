@@ -18,7 +18,14 @@ from core.views import (
     ExpenseViewSet,
     ReminderViewSet,
     IncomeCategoryViewSet,
-    ExpenseCategoryViewSet
+    ExpenseCategoryViewSet,
+    UserProfileView,
+    ChangePasswordView,
+    ForgotPasswordView,
+    ResetPasswordView,
+    import_sales,
+    import_income,
+    import_expenses
 )
 
 router = DefaultRouter()
@@ -37,6 +44,10 @@ urlpatterns = [
 
     path('api/register/', RegisterView.as_view()),
     path('api/login/', LoginView.as_view()),
+    path('api/profile/', UserProfileView.as_view()),
+    path('api/profile/change-password/', ChangePasswordView.as_view()),
+    path('api/forgot-password/', ForgotPasswordView.as_view()),
+    path('api/reset-password/', ResetPasswordView.as_view()),
 
     # JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -44,8 +55,16 @@ urlpatterns = [
 
     path('api/', include(router.urls)),
     
+    # Bulk Import
+    path('api/sales/import/', import_sales),
+    path('api/income/import/', import_income),
+    path('api/expenses/import/', import_expenses),
+    
     # Analytics Dashboard
     path('api/dashboard/', include('core.analytics.urls')),
+    
+    # AI Agent
+    path('api/ai/', include('core.ai_agent.urls')),
 ]
 
 if settings.DEBUG:
