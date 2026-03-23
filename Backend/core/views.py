@@ -200,7 +200,14 @@ class UserProfileView(APIView):
     def get(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile)
-        return Response(serializer.data)
+        return Response({
+            'user': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'email': request.user.email
+            },
+            **serializer.data
+        })
 
     def put(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)

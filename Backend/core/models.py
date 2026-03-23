@@ -17,6 +17,21 @@ class Branch(models.Model):
     class Meta:
         db_table = 'branches'
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                Lower('name'), 'user',
+                name='unique_branch_per_user_ci'
+            )
+        ]
+
+    def clean(self):
+        if Branch.objects.filter(
+            user=self.user,
+            name__iexact=self.name
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError({
+                "name": "You already have a branch with this name."
+            })
 
     def __str__(self):
         return self.name

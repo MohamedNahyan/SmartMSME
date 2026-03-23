@@ -22,6 +22,8 @@ class BranchSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    
     class Meta:
         model = Product
         fields = "__all__"
@@ -52,6 +54,7 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
 class SaleSerializer(serializers.ModelSerializer):
     items = SaleItemSerializer(many=True, read_only=True)
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
 
     class Meta:
         model = Sale
@@ -66,6 +69,9 @@ class IncomeCategorySerializer(serializers.ModelSerializer):
 
 
 class IncomeSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    
     class Meta:
         model = Income
         fields = "__all__"
@@ -84,6 +90,9 @@ class ExpenseCategorySerializer(serializers.ModelSerializer):
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    
     class Meta:
         model = Expense
         fields = "__all__"
@@ -96,6 +105,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 class ReminderSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    
     class Meta:
         model = Reminder
         fields = "__all__"
@@ -103,7 +114,7 @@ class ReminderSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(required=True)
+    first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -115,7 +126,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data["username"],
             email=validated_data["email"],
             password=validated_data["password"],
-            first_name=validated_data["first_name"],
+            first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", "")
         )
         return user
@@ -123,9 +134,9 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.EmailField(source='user.email')
-    first_name = serializers.CharField(source='user.first_name')
-    last_name = serializers.CharField(source='user.last_name', allow_blank=True)
+    email = serializers.EmailField(source='user.email', required=False)
+    first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
+    last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
 
     class Meta:
         model = UserProfile
