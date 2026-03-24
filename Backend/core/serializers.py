@@ -36,6 +36,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class SaleItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
     class Meta:
         model = SaleItem
         fields = "__all__"
@@ -66,6 +68,7 @@ class IncomeCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = IncomeCategory
         fields = "__all__"
+        read_only_fields = ["user", "created_at"]
 
 
 class IncomeSerializer(serializers.ModelSerializer):
@@ -87,6 +90,7 @@ class ExpenseCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpenseCategory
         fields = "__all__"
+        read_only_fields = ["user", "created_at"]
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
@@ -111,6 +115,7 @@ class ReminderSerializer(serializers.ModelSerializer):
         model = Reminder
         fields = "__all__"
         read_only_fields = ["user", "created_at", "updated_at"]
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

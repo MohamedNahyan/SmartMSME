@@ -41,6 +41,9 @@ export default function Login() {
             </div>
             <Button type="submit" className="w-full">Login</Button>
             <p className="text-center text-sm">
+              <Link to="/forgot-password" className="text-blue-600 hover:underline">Forgot password?</Link>
+            </p>
+            <p className="text-center text-sm">
               Don't have an account? <Link to="/register" className="text-blue-600 hover:underline">Register</Link>
             </p>
           </form>

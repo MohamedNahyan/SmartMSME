@@ -53,12 +53,12 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    path('api/', include(router.urls)),
-    
-    # Bulk Import
+    # Bulk Import — must be before router.urls
     path('api/sales/import/', import_sales),
     path('api/income/import/', import_income),
     path('api/expenses/import/', import_expenses),
+
+    path('api/', include(router.urls)),
     
     # Analytics Dashboard
     path('api/dashboard/', include('core.analytics.urls')),

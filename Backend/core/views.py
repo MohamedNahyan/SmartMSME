@@ -16,6 +16,7 @@ from .models import (
     Branch,
     Product,
     Sale,
+    SaleItem,
     Income,
     Expense,
     Reminder,
@@ -117,6 +118,18 @@ class SaleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Sale.objects.filter(branch__user=self.request.user)
 
+    def perform_create(self, serializer):
+        items_data = self.request.data.get('items', [])
+        sale = serializer.save()
+        for item in items_data:
+            unit_price = item.get('unit_price')
+            SaleItem.objects.create(
+                sale=sale,
+                product_id=item['product'],
+                quantity=int(item['quantity']),
+                unit_price=float(unit_price) if unit_price else None
+            )
+
     def handle_exception(self, exc):
         if isinstance(exc, NotFound):
             return Response({"error": "Sale not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -175,6 +188,9 @@ class IncomeCategoryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return IncomeCategory.objects.filter(user=self.request.user)
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     def handle_exception(self, exc):
         if isinstance(exc, NotFound):
             return Response({"error": "Income category not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -187,6 +203,9 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ExpenseCategory.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     def handle_exception(self, exc):
         if isinstance(exc, NotFound):
@@ -218,7 +237,6 @@ class UserProfileView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -237,7 +255,6 @@ class ChangePasswordView(APIView):
         return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)
 
 
-
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -246,28 +263,33 @@ class ForgotPasswordView(APIView):
         from django.utils.http import urlsafe_base64_encode
         from django.utils.encoding import force_bytes
         from django.contrib.auth.models import User
-        
+        from django.core.mail import send_mail
+
         email = request.data.get('email')
-        
+
         if not email:
             return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             user = User.objects.get(email=email)
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            
-            reset_link = f"/reset-password/{uid}/{token}/"
-            
-            return Response({
-                "message": "Password reset link sent to email",
-                "uid": uid,
-                "token": token
-            }, status=status.HTTP_200_OK)
+            reset_link = f"http://localhost:3000/reset-password/{uid}/{token}"
+
+            send_mail(
+                subject="SmartMSME Password Reset",
+                message=f"Click the link below to reset your password:\n\n{reset_link}\n\nThis link expires shortly.",
+                from_email=None,
+                recipient_list=[email],
+                fail_silently=False,
+            )
         except User.DoesNotExist:
-            return Response({
-                "message": "If email exists, password reset link has been sent"
-            }, status=status.HTTP_200_OK)
+            pass
+
+        return Response(
+            {"message": "If that email is registered, a reset link has been sent."},
+            status=status.HTTP_200_OK
+        )
 
 
 class ResetPasswordView(APIView):
@@ -278,18 +300,18 @@ class ResetPasswordView(APIView):
         from django.utils.http import urlsafe_base64_decode
         from django.utils.encoding import force_str
         from django.contrib.auth.models import User
-        
+
         uid = request.data.get('uid')
         token = request.data.get('token')
         new_password = request.data.get('new_password')
-        
+
         if not all([uid, token, new_password]):
             return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             user_id = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=user_id)
-            
+
             if default_token_generator.check_token(user, token):
                 user.set_password(new_password)
                 user.save()
@@ -304,25 +326,25 @@ class ResetPasswordView(APIView):
 @permission_classes([IsAuthenticated])
 def import_sales(request):
     from .services import process_sales_file
-    
+
     file = request.FILES.get('file')
     branch_id = request.data.get('branch_id')
-    
+
     if not file or not branch_id:
         return Response({"error": "File and branch_id required"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     try:
         Branch.objects.get(id=branch_id, user=request.user)
     except Branch.DoesNotExist:
         return Response({"error": "Branch not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     temp_file = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as temp_file:
             for chunk in file.chunks():
                 temp_file.write(chunk)
             temp_file_path = temp_file.name
-        
+
         process_sales_file(temp_file_path, branch_id)
         return Response({"message": "Sales imported successfully"}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -336,25 +358,25 @@ def import_sales(request):
 @permission_classes([IsAuthenticated])
 def import_income(request):
     from .services import process_income_file
-    
+
     file = request.FILES.get('file')
     branch_id = request.data.get('branch_id')
-    
+
     if not file or not branch_id:
         return Response({"error": "File and branch_id required"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     try:
         Branch.objects.get(id=branch_id, user=request.user)
     except Branch.DoesNotExist:
         return Response({"error": "Branch not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     temp_file = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as temp_file:
             for chunk in file.chunks():
                 temp_file.write(chunk)
             temp_file_path = temp_file.name
-        
+
         process_income_file(temp_file_path, branch_id)
         return Response({"message": "Income imported successfully"}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -368,25 +390,25 @@ def import_income(request):
 @permission_classes([IsAuthenticated])
 def import_expenses(request):
     from .services import process_expense_file
-    
+
     file = request.FILES.get('file')
     branch_id = request.data.get('branch_id')
-    
+
     if not file or not branch_id:
         return Response({"error": "File and branch_id required"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     try:
         Branch.objects.get(id=branch_id, user=request.user)
     except Branch.DoesNotExist:
         return Response({"error": "Branch not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     temp_file = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as temp_file:
             for chunk in file.chunks():
                 temp_file.write(chunk)
             temp_file_path = temp_file.name
-        
+
         process_expense_file(temp_file_path, branch_id)
         return Response({"message": "Expenses imported successfully"}, status=status.HTTP_200_OK)
     except Exception as e:

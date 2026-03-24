@@ -11,7 +11,7 @@ export default function Reminders() {
   const [reminders, setReminders] = useState<any[]>([])
   const [branches, setBranches] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ id: '', branch: '', title: '', description: '', reminder_date: '', is_completed: false })
+  const [form, setForm] = useState({ id: '', branch: '', title: '', description: '', due_date: '', is_completed: false })
 
   useEffect(() => {
     loadReminders()
@@ -34,7 +34,7 @@ export default function Reminders() {
       } else {
         await api.post('/reminders/', form)
       }
-      setForm({ id: '', branch: '', title: '', description: '', reminder_date: '', is_completed: false })
+      setForm({ id: '', branch: '', title: '', description: '', due_date: '', is_completed: false })
       setShowForm(false)
       loadReminders()
     } catch (err: any) {
@@ -84,10 +84,10 @@ export default function Reminders() {
               </select>
               <Input placeholder="Title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
               <Input placeholder="Description" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-              <Input type="date" value={form.reminder_date} onChange={e => setForm({...form, reminder_date: e.target.value})} required />
+              <Input type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} required />
               <div className="flex gap-2">
                 <Button type="submit">Save</Button>
-                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setForm({ id: '', branch: '', title: '', description: '', reminder_date: '', is_completed: false }) }}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setForm({ id: '', branch: '', title: '', description: '', due_date: '', is_completed: false }) }}>Cancel</Button>
               </div>
             </form>
           </CardContent>
@@ -119,7 +119,7 @@ export default function Reminders() {
                       <CheckCircle className={`w-5 h-5 ${reminder.is_completed ? 'text-green-600 fill-green-600' : 'text-gray-300'}`} />
                     </button>
                   </TableCell>
-                  <TableCell>{formatDate(reminder.reminder_date)}</TableCell>
+                  <TableCell>{formatDate(reminder.due_date)}</TableCell>
                   <TableCell>{reminder.branch_name}</TableCell>
                   <TableCell className="font-medium">{reminder.title}</TableCell>
                   <TableCell>{reminder.description}</TableCell>

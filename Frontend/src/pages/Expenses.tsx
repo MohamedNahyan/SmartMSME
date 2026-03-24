@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tag, Upload } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function Expenses() {
@@ -12,6 +12,12 @@ export default function Expenses() {
   const [branches, setBranches] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [showCatForm, setShowCatForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [importBranch, setImportBranch] = useState('')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [newCategory, setNewCategory] = useState('')
   const [form, setForm] = useState({ id: '', branch: '', category: '', amount: '', description: '', expense_date: '' })
 
   useEffect(() => {
@@ -20,10 +26,7 @@ export default function Expenses() {
       const data = res.data.results || res.data
       setBranches(Array.isArray(data) ? data : [])
     }).catch(() => setBranches([]))
-    api.get('/expense-categories/').then(res => {
-      const data = res.data.results || res.data
-      setCategories(Array.isArray(data) ? data : [])
-    }).catch(() => setCategories([]))
+    loadCategories()
   }, [])
 
   const loadExpenses = () => api.get('/expenses/').then(res => {
@@ -31,19 +34,47 @@ export default function Expenses() {
     setExpenses(Array.isArray(data) ? data : [])
   }).catch(() => setExpenses([]))
 
+  const loadCategories = () => api.get('/expense-categories/').then(res => {
+    const data = res.data.results || res.data
+    setCategories(Array.isArray(data) ? data : [])
+  }).catch(() => setCategories([]))
+
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return
+    try {
+      await api.post('/expense-categories/', { name: newCategory.trim() })
+      setNewCategory('')
+      loadCategories()
+    } catch (err: any) {
+      alert(err.response?.data?.error || JSON.stringify(err.response?.data) || 'Failed to create category')
+    }
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+    if (confirm('Delete this category?')) {
+      try {
+        await api.delete(`/expense-categories/${id}/`)
+        loadCategories()
+      } catch {
+        alert('Failed to delete category')
+      }
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      const payload = { ...form, expense_date: form.expense_date ? `${form.expense_date}T00:00:00` : '' }
       if (form.id) {
-        await api.put(`/expenses/${form.id}/`, form)
+        await api.put(`/expenses/${form.id}/`, payload)
       } else {
-        await api.post('/expenses/', form)
+        await api.post('/expenses/', payload)
       }
       setForm({ id: '', branch: '', category: '', amount: '', description: '', expense_date: '' })
       setShowForm(false)
       loadExpenses()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to save expense')
+      alert(err.response?.data?.error || JSON.stringify(err.response?.data) || 'Failed to save expense')
     }
   }
 
@@ -58,14 +89,90 @@ export default function Expenses() {
     }
   }
 
+  const handleImport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!importFile || !importBranch) return
+    const formData = new FormData()
+    formData.append('file', importFile)
+    formData.append('branch_id', importBranch)
+    setImporting(true)
+    try {
+      await api.post('/expenses/import/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      alert('Expenses imported successfully')
+      setShowImport(false)
+      setImportBranch('')
+      setImportFile(null)
+      loadExpenses()
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Expenses</h1>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <Plus className="w-4 h-4 mr-2" /> Add Expense
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImport(!showImport)}>
+            <Upload className="w-4 h-4 mr-2" /> Import
+          </Button>
+          <Button variant="outline" onClick={() => setShowCatForm(!showCatForm)}>
+            <Tag className="w-4 h-4 mr-2" /> Manage Categories
+          </Button>
+          <Button onClick={() => setShowForm(!showForm)}>
+            <Plus className="w-4 h-4 mr-2" /> Add Expense
+          </Button>
+        </div>
       </div>
+
+      {showImport && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Import Expenses (CSV / Excel)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleImport} className="space-y-4">
+              <select className="w-full h-10 rounded-md border px-3" value={importBranch} onChange={e => setImportBranch(e.target.value)} required>
+                <option value="">Select Branch</option>
+                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              <Input type="file" accept=".csv,.xlsx" onChange={e => setImportFile(e.target.files?.[0] || null)} required />
+              <p className="text-xs text-muted-foreground">Required columns: category, amount, expense_date — optional: description</p>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={importing}>{importing ? 'Importing...' : 'Import'}</Button>
+                <Button type="button" variant="outline" onClick={() => setShowImport(false)}>Cancel</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {showCatForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Expense Categories</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input placeholder="New category name" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
+              <Button onClick={handleAddCategory}>Add</Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {categories.length === 0
+                ? <p className="text-sm text-muted-foreground">No categories yet.</p>
+                : categories.map(c => (
+                  <div key={c.id} className="flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-sm">
+                    {c.name}
+                    <button onClick={() => handleDeleteCategory(c.id)} className="ml-1 text-muted-foreground hover:text-destructive">×</button>
+                  </div>
+                ))
+              }
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {showForm && (
         <Card>
@@ -121,7 +228,7 @@ export default function Expenses() {
                   <TableCell className="font-medium">{formatCurrency(expense.amount)}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => { setForm({...expense, branch: expense.branch, category: expense.category}); setShowForm(true) }}>
+                      <Button size="sm" variant="ghost" onClick={() => { setForm({...expense, branch: expense.branch, category: expense.category, expense_date: expense.expense_date?.split('T')[0] || ''}); setShowForm(true) }}>
                         <Pencil className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(expense.id)}>

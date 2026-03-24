@@ -9,13 +9,12 @@ class AIAgentChatView(APIView):
     
     def post(self, request):
         message = request.data.get('message', '')
-        session_id = request.data.get('session_id', None)
         clear_context = request.data.get('clear_context', False)
         
         if not message:
             return Response({'error': 'Message is required'}, status=400)
         
-        agent = BusinessAIAgent(request.user, session_id=session_id)
+        agent = BusinessAIAgent(request.user)
         
         if clear_context:
             agent.clear_context()
@@ -26,19 +25,14 @@ class AIAgentChatView(APIView):
             'message': message,
             'response': result['response'],
             'data': result['data'],
-            'intents': result['intents'],
-            'entities': result['entities'],
-            'session_id': agent.session_id
         })
 
 class AIAgentClearContextView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        session_id = request.data.get('session_id', None)
-        agent = BusinessAIAgent(request.user, session_id=session_id)
+        agent = BusinessAIAgent(request.user)
         agent.clear_context()
-        
         return Response({'message': 'Conversation context cleared successfully'})
 
 class KPIRevenueView(APIView):

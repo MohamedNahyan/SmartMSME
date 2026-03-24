@@ -19,7 +19,7 @@ class BusinessTools:
         
         total = sales.aggregate(total=Sum('total_amount'))['total'] or 0
         period_str = f" ({start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')})" if start_date else ""
-        return f"Total revenue{period_str}: ${total}"
+        return f"Total revenue{period_str}: ₹{total}"
     
     def get_total_expenses(self, branch_name=None, time_period=None):
         expenses = Expense.objects.filter(branch__user=self.user)
@@ -32,7 +32,7 @@ class BusinessTools:
         
         total = expenses.aggregate(total=Sum('amount'))['total'] or 0
         period_str = f" ({start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')})" if start_date else ""
-        return f"Total expenses{period_str}: ${total}"
+        return f"Total expenses{period_str}: ₹{total}"
     
     def get_profit(self, branch_name=None, time_period=None):
         sales = Sale.objects.filter(branch__user=self.user)
@@ -58,7 +58,7 @@ class BusinessTools:
         margin = (profit / total_revenue * 100) if total_revenue > 0 else 0
         
         period_str = f" ({start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')})" if start_date else ""
-        return f"Profit{period_str}: ${profit} | Total Revenue: ${total_revenue} (Sales: ${sales_revenue}, Other Income: ${other_income}) | Expenses: ${expense} | Margin: {margin:.1f}%"
+        return f"Profit{period_str}: ₹{profit} | Total Revenue: ₹{total_revenue} (Sales: ₹{sales_revenue}, Other Income: ₹{other_income}) | Expenses: ₹{expense} | Margin: {margin:.1f}%"
     
     def get_top_products(self, limit=5, time_period=None):
         sale_items = SaleItem.objects.filter(sale__branch__user=self.user)
@@ -83,7 +83,7 @@ class BusinessTools:
         period_str = f" ({start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')})" if start_date else ""
         result = f"Top Products{period_str}:\n"
         for i, p in enumerate(products, 1):
-            result += f"{i}. {p['product__name']}: {p['total_quantity']} units, ${p['total_revenue']}\n"
+            result += f"{i}. {p['product__name']}: {p['total_quantity']} units, ₹{p['total_revenue']}\n"
         return result
     
     def get_branch_performance(self, time_period=None):
@@ -112,7 +112,7 @@ class BusinessTools:
             expense_total = expenses.aggregate(total=Sum('amount'))['total'] or 0
             profit = total_revenue - expense_total
             
-            result += f"\n{branch.name}: Total Revenue ${total_revenue} (Sales: ${sales_revenue}, Income: ${other_income}), Expenses ${expense_total}, Profit ${profit}\n"
+            result += f"\n{branch.name}: Total Revenue ₹{total_revenue} (Sales: ₹{sales_revenue}, Income: ₹{other_income}), Expenses ₹{expense_total}, Profit ₹{profit}\n"
         return result
     
     def get_expense_breakdown(self, time_period=None):
@@ -135,7 +135,7 @@ class BusinessTools:
         period_str = f" ({start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')})" if start_date else ""
         result = f"Expense Breakdown{period_str}:\n"
         for exp in expenses:
-            result += f"- {exp['category__name']}: ${exp['total']}\n"
+            result += f"- {exp['category__name']}: ₹{exp['total']}\n"
         return result
     
     def get_monthly_trend(self, months=6, time_period=None):
@@ -160,7 +160,7 @@ class BusinessTools:
         
         result = f"Monthly Revenue Trend:\n"
         for m in monthly:
-            result += f"{m['month'].strftime('%B %Y')}: ${m['revenue']}\n"
+            result += f"{m['month'].strftime('%B %Y')}: ₹{m['revenue']}\n"
         return result
     
     def get_pending_reminders(self):
