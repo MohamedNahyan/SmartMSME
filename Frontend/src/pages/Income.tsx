@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
-import { Plus, Pencil, Trash2, Tag, Upload } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tag, Upload, TrendingUp, X, Search, Filter } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function Income() {
@@ -19,6 +19,11 @@ export default function Income() {
   const [importing, setImporting] = useState(false)
   const [newCategory, setNewCategory] = useState('')
   const [form, setForm] = useState({ id: '', branch: '', category: '', amount: '', description: '', income_date: '' })
+  const [filterBranch, setFilterBranch] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterSearch, setFilterSearch] = useState('')
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo, setFilterTo] = useState('')
 
   useEffect(() => {
     loadIncome()
@@ -55,9 +60,7 @@ export default function Income() {
       try {
         await api.delete(`/income-categories/${id}/`)
         loadCategories()
-      } catch {
-        alert('Failed to delete category')
-      }
+      } catch { alert('Failed to delete category') }
     }
   }
 
@@ -70,8 +73,7 @@ export default function Income() {
       } else {
         await api.post('/income/', payload)
       }
-      setForm({ id: '', branch: '', category: '', amount: '', description: '', income_date: '' })
-      setShowForm(false)
+      closeForm()
       loadIncome()
     } catch (err: any) {
       alert(err.response?.data?.error || JSON.stringify(err.response?.data) || 'Failed to save income')
@@ -110,130 +112,230 @@ export default function Income() {
     }
   }
 
+  const closeForm = () => {
+    setShowForm(false)
+    setForm({ id: '', branch: '', category: '', amount: '', description: '', income_date: '' })
+  }
+
+  const openEdit = (item: any) => {
+    setForm({ ...item, branch: item.branch, category: item.category || '', income_date: item.income_date?.split('T')[0] || '' })
+    setShowForm(true)
+  }
+
+  // Filtered income
+  const filtered = useMemo(() => {
+    return income.filter(item => {
+      if (filterBranch && item.branch !== parseInt(filterBranch) && item.branch_name !== filterBranch) {
+        const branch = branches.find(b => b.id === parseInt(filterBranch))
+        if (branch && item.branch_name !== branch.name) return false
+      }
+      if (filterCategory && item.category_name?.toLowerCase() !== filterCategory.toLowerCase()) return false
+      if (filterSearch && !item.description?.toLowerCase().includes(filterSearch.toLowerCase()) && !item.category_name?.toLowerCase().includes(filterSearch.toLowerCase())) return false
+      if (filterFrom && item.income_date < filterFrom) return false
+      if (filterTo && item.income_date.split('T')[0] > filterTo) return false
+      return true
+    })
+  }, [income, filterBranch, filterCategory, filterSearch, filterFrom, filterTo, branches])
+
+  const totalFiltered = useMemo(() => filtered.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0), [filtered])
+  const totalAll = useMemo(() => income.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0), [income])
+  const thisMonth = useMemo(() => {
+    const now = new Date()
+    return income.filter(i => {
+      const d = new Date(i.income_date)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    }).reduce((sum, i) => sum + parseFloat(i.amount || 0), 0)
+  }, [income])
+
+  const hasFilters = filterBranch || filterCategory || filterSearch || filterFrom || filterTo
+
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Income</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowImport(!showImport)}>
-            <Upload className="w-4 h-4 mr-2" /> Import
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+
+      {/* Header */}
+      <div className="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Income</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Track and manage all your income records</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setShowImport(!showImport); setShowCatForm(false) }}>
+            <Upload className="w-4 h-4 mr-1.5" /> Import
           </Button>
-          <Button variant="outline" onClick={() => setShowCatForm(!showCatForm)}>
-            <Tag className="w-4 h-4 mr-2" /> Manage Categories
+          <Button variant="outline" size="sm" onClick={() => { setShowCatForm(!showCatForm); setShowImport(false) }}>
+            <Tag className="w-4 h-4 mr-1.5" /> Categories
           </Button>
-          <Button onClick={() => setShowForm(!showForm)}>
-            <Plus className="w-4 h-4 mr-2" /> Add Income
+          <Button size="sm" onClick={() => { setShowForm(true); setShowImport(false); setShowCatForm(false) }}>
+            <Plus className="w-4 h-4 mr-1.5" /> Add Income
           </Button>
         </div>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 shadow-sm">
+          <div className="bg-green-100 p-3 rounded-lg">
+            <TrendingUp className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Income</p>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(totalAll)}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 shadow-sm">
+          <div className="bg-blue-100 p-3 rounded-lg">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">This Month</p>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(thisMonth)}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 shadow-sm">
+          <div className="bg-purple-100 p-3 rounded-lg">
+            <Filter className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Filtered Total</p>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(totalFiltered)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Import Panel */}
       {showImport && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Import Income (CSV / Excel)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleImport} className="space-y-4">
-              <select className="w-full h-10 rounded-md border px-3" value={importBranch} onChange={e => setImportBranch(e.target.value)} required>
-                <option value="">Select Branch</option>
-                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-              <Input type="file" accept=".csv,.xlsx" onChange={e => setImportFile(e.target.files?.[0] || null)} required />
-              <p className="text-xs text-muted-foreground">Required columns: category, amount, income_date — optional: description</p>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={importing}>{importing ? 'Importing...' : 'Import'}</Button>
-                <Button type="button" variant="outline" onClick={() => setShowImport(false)}>Cancel</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {showCatForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Income Categories</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold text-gray-800">Import Income (CSV / Excel)</h2>
+            <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+          </div>
+          <form onSubmit={handleImport} className="space-y-3">
+            <select className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={importBranch} onChange={e => setImportBranch(e.target.value)} required>
+              <option value="">Select Branch</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <Input type="file" accept=".csv,.xlsx" onChange={e => setImportFile(e.target.files?.[0] || null)} required />
+            <p className="text-xs text-gray-400">Required columns: category, amount, income_date — optional: description</p>
             <div className="flex gap-2">
-              <Input placeholder="New category name" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
-              <Button onClick={handleAddCategory}>Add</Button>
+              <Button type="submit" size="sm" disabled={importing}>{importing ? 'Importing...' : 'Import'}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowImport(false)}>Cancel</Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {categories.length === 0
-                ? <p className="text-sm text-muted-foreground">No categories yet.</p>
-                : categories.map(c => (
-                  <div key={c.id} className="flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-sm">
-                    {c.name}
-                    <button onClick={() => handleDeleteCategory(c.id)} className="ml-1 text-muted-foreground hover:text-destructive">×</button>
-                  </div>
-                ))
-              }
-            </div>
-          </CardContent>
-        </Card>
+          </form>
+        </div>
       )}
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{form.id ? 'Edit' : 'Add'} Income</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <select className="w-full h-10 rounded-md border px-3" value={form.branch} onChange={e => setForm({...form, branch: e.target.value})} required>
-                <option value="">Select Branch</option>
-                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-              <select className="w-full h-10 rounded-md border px-3" value={form.category} onChange={e => setForm({...form, category: e.target.value})} required>
-                <option value="">Select Category</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <Input type="number" step="0.01" placeholder="Amount" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required />
-              <Input placeholder="Description" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-              <Input type="date" value={form.income_date} onChange={e => setForm({...form, income_date: e.target.value})} required />
-              <div className="flex gap-2">
-                <Button type="submit">Save</Button>
-                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setForm({ id: '', branch: '', category: '', amount: '', description: '', income_date: '' }) }}>Cancel</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+      {/* Categories Panel */}
+      {showCatForm && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold text-gray-800">Income Categories</h2>
+            <button onClick={() => setShowCatForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex gap-2 mb-4">
+            <Input placeholder="New category name" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
+            <Button size="sm" onClick={handleAddCategory}>Add</Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {categories.length === 0
+              ? <p className="text-sm text-gray-400">No categories yet.</p>
+              : categories.map(c => (
+                <span key={c.id} className="flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium">
+                  {c.name}
+                  <button onClick={() => handleDeleteCategory(c.id)} className="text-gray-400 hover:text-red-500 leading-none">×</button>
+                </span>
+              ))
+            }
+          </div>
+        </div>
       )}
 
-      <Card>
+      {/* Filters */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search..."
+              value={filterSearch}
+              onChange={e => setFilterSearch(e.target.value)}
+            />
+          </div>
+          <select className="h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={filterBranch} onChange={e => setFilterBranch(e.target.value)}>
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select className="h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <option value="">All Categories</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+          <input type="date" className="h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
+          <div className="flex gap-2">
+            <input type="date" className="flex-1 h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+            {hasFilters && (
+              <button onClick={() => { setFilterBranch(''); setFilterCategory(''); setFilterSearch(''); setFilterFrom(''); setFilterTo('') }} className="h-9 px-2 text-xs text-gray-500 hover:text-red-500 border border-gray-200 rounded-lg whitespace-nowrap">
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <p className="text-sm text-gray-500">
+            {hasFilters ? `${filtered.length} of ${income.length} records` : `${income.length} record${income.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Branch</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Actions</TableHead>
+            <TableRow className="bg-gray-50">
+              <TableHead className="font-semibold text-gray-600">Date</TableHead>
+              <TableHead className="font-semibold text-gray-600">Branch</TableHead>
+              <TableHead className="font-semibold text-gray-600">Category</TableHead>
+              <TableHead className="font-semibold text-gray-600">Description</TableHead>
+              <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
+              <TableHead className="font-semibold text-gray-600 text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {income.length === 0 ? (
+            {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">No income records found. Add your first income!</TableCell>
+                <TableCell colSpan={6}>
+                  <div className="flex flex-col items-center justify-center py-14 text-center">
+                    <div className="bg-green-50 p-4 rounded-full mb-3">
+                      <TrendingUp className="w-8 h-8 text-green-400" />
+                    </div>
+                    <p className="text-gray-700 font-medium">
+                      {hasFilters ? 'No records match your filters' : 'No income records yet'}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {hasFilters ? 'Try adjusting your filters' : 'Click "+ Add Income" to record your first income'}
+                    </p>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : (
-              income.map(item => (
-                <TableRow key={item.id}>
-                  <TableCell>{formatDate(item.income_date)}</TableCell>
-                  <TableCell>{item.branch_name}</TableCell>
-                  <TableCell>{item.category_name || 'N/A'}</TableCell>
-                  <TableCell>{item.description}</TableCell>
-                  <TableCell className="font-medium">{formatCurrency(item.amount)}</TableCell>
+              filtered.map(item => (
+                <TableRow key={item.id} className="hover:bg-gray-50 transition-colors">
+                  <TableCell className="text-gray-700">{formatDate(item.income_date)}</TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => { setForm({...item, branch: item.branch, category: item.category || '', income_date: item.income_date?.split('T')[0] || ''}); setShowForm(true) }}>
+                    <span className="bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">{item.branch_name}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="bg-green-50 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">{item.category_name || '—'}</span>
+                  </TableCell>
+                  <TableCell className="text-gray-500 text-sm">{item.description || <span className="text-gray-300">—</span>}</TableCell>
+                  <TableCell className="text-right font-semibold text-green-600">{formatCurrency(item.amount)}</TableCell>
+                  <TableCell>
+                    <div className="flex justify-center gap-1">
+                      <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                         <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)}>
+                      </button>
+                      <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -241,7 +343,53 @@ export default function Income() {
             )}
           </TableBody>
         </Table>
-      </Card>
+      </div>
+
+      {/* Modal Form */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">{form.id ? 'Edit Income' : 'Add Income'}</h2>
+              <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                <select className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} required>
+                  <option value="">Select Branch</option>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} required>
+                  <option value="">Select Category</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                <Input type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <Input type="date" value={form.income_date} onChange={e => setForm({ ...form, income_date: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-gray-400 font-normal">(optional)</span></label>
+                <Input placeholder="e.g. January product sales" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1">Save Income</Button>
+                <Button type="button" variant="outline" className="flex-1" onClick={closeForm}>Cancel</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

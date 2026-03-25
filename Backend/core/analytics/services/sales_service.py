@@ -4,10 +4,14 @@ from core.models import SaleItem, Sale
 from decimal import Decimal
 
 
-def top_products(user, branch_id=None):
+def top_products(user, branch_id=None, date_from=None, date_to=None):
     qs = SaleItem.objects.filter(sale__branch__user=user)
     if branch_id:
         qs = qs.filter(sale__branch_id=branch_id)
+    if date_from:
+        qs = qs.filter(sale__sale_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(sale__sale_date__lte=date_to)
     data = (
         qs.values("product__name")
         .annotate(quantity=Sum("quantity"))
@@ -16,10 +20,14 @@ def top_products(user, branch_id=None):
     return list(data)
 
 
-def top_products_by_revenue(user, branch_id=None):
+def top_products_by_revenue(user, branch_id=None, date_from=None, date_to=None):
     qs = SaleItem.objects.filter(sale__branch__user=user)
     if branch_id:
         qs = qs.filter(sale__branch_id=branch_id)
+    if date_from:
+        qs = qs.filter(sale__sale_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(sale__sale_date__lte=date_to)
     data = (
         qs.values("product__name")
         .annotate(revenue=Sum("line_total"))
@@ -28,17 +36,25 @@ def top_products_by_revenue(user, branch_id=None):
     return list(data)
 
 
-def average_order_value(user, branch_id=None):
+def average_order_value(user, branch_id=None, date_from=None, date_to=None):
     qs = Sale.objects.filter(branch__user=user)
     if branch_id:
         qs = qs.filter(branch_id=branch_id)
+    if date_from:
+        qs = qs.filter(sale_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(sale_date__lte=date_to)
     return qs.aggregate(avg=Avg("total_amount"))["avg"] or 0
 
 
-def total_sales_count(user, branch_id=None):
+def total_sales_count(user, branch_id=None, date_from=None, date_to=None):
     qs = Sale.objects.filter(branch__user=user)
     if branch_id:
         qs = qs.filter(branch_id=branch_id)
+    if date_from:
+        qs = qs.filter(sale_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(sale_date__lte=date_to)
     return qs.count()
 
 

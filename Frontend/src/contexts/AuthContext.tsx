@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
   logout: () => void
+  updateUser: (u: User) => void
   isLoading: boolean
 }
 
@@ -25,15 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('access_token')
     if (token) {
       api.get('/profile/')
-        .then(res => {
-          if (res.data.user) {
-            setUser(res.data.user)
-          }
-        })
-        .catch(() => {
-          localStorage.clear()
-          setUser(null)
-        })
+        .then(res => { if (res.data.user) setUser(res.data.user) })
+        .catch(() => { localStorage.clear(); setUser(null) })
         .finally(() => setIsLoading(false))
     } else {
       setIsLoading(false)
@@ -60,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser: setUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

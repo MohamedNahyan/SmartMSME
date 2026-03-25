@@ -229,12 +229,21 @@ class UserProfileView(APIView):
         })
 
     def put(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        username = request.data.get('username')
+        email = request.data.get('email')
+
+        if username and username != user.username:
+            from django.contrib.auth.models import User
+            if User.objects.filter(username=username).exclude(pk=user.pk).exists():
+                return Response({'error': 'Username already taken'}, status=status.HTTP_400_BAD_REQUEST)
+            user.username = username
+
+        if email:
+            user.email = email
+
+        user.save()
+        return Response({'username': user.username, 'email': user.email})
 
 
 class ChangePasswordView(APIView):

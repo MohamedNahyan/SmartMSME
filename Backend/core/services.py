@@ -1,7 +1,21 @@
 import pandas as pd
 from decimal import Decimal
+from datetime import datetime
 from django.db import transaction
-from django.utils.dateparse import parse_datetime
+
+_DATE_FORMATS = [
+    '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d',
+    '%d-%m-%Y %H:%M:%S', '%d-%m-%Y %H:%M', '%d-%m-%Y',
+    '%d/%m/%Y %H:%M:%S', '%d/%m/%Y %H:%M', '%d/%m/%Y',
+]
+
+def _parse_date(value):
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(str(value).strip(), fmt)
+        except ValueError:
+            continue
+    return None
 
 from .models import (
     Sale, SaleItem, Product, Branch,
@@ -41,7 +55,7 @@ def process_sales_file(file_path, branch_id):
 
                 product_key = product_name.lower()
 
-                sale_date = parse_datetime(str(row["sale_date"]))
+                sale_date = _parse_date(row["sale_date"])
 
                 if not sale_date:
                     raise ValueError("Invalid sale_date")
@@ -141,7 +155,7 @@ def process_income_file(file_path, branch_id):
 
                 category_key = category_name.lower()
 
-                income_date = parse_datetime(str(row["income_date"]))
+                income_date = _parse_date(row["income_date"])
 
                 if not income_date:
                     raise ValueError("Invalid income_date")
@@ -224,7 +238,7 @@ def process_expense_file(file_path, branch_id):
 
                 category_key = category_name.lower()
 
-                expense_date = parse_datetime(str(row["expense_date"]))
+                expense_date = _parse_date(row["expense_date"])
 
                 if not expense_date:
                     raise ValueError("Invalid expense_date")
